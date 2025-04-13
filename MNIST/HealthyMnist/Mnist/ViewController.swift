@@ -34,68 +34,40 @@ class ViewController: UIViewController {
 
   var firstTime = true
 
-    lazy var classificationRequest: VNCoreMLRequest = {
-        do {
-            guard let modelURL = Bundle.main.url(forResource: "Mnist", withExtension: "mlpackage") else {
-                fatalError("Could not find Mnist.mlpackage in bundle")
-            }
-            
-            let compiledModelURL = try MLModel.compileModel(at: modelURL)
-            let coreMLModel = try MLModel(contentsOf: compiledModelURL)
-            let visionModel = try VNCoreMLModel(for: coreMLModel)
-            
-            let request = VNCoreMLRequest(model: visionModel) { [weak self] request, error in
-                self?.processObservations(for: request, error: error)
-            }
-            request.imageCropAndScaleOption = .centerCrop
-            return request
-        } catch {
-            fatalError("Failed to load Mnist.mlpackage: \(error)")
-        }
-    }()
+    
 
-
-    
-    
-    
-    func processObservations(for request: VNRequest, error: Error?) {
-      DispatchQueue.main.async {
-        if let results = request.results as? [VNClassificationObservation] {
-            if results.isEmpty {
-              self.resultsLabel.text = "nothing found"
-            } else {
-                let top = results[0]
-                self.resultsLabel.text = "Digit: \(top.identifier) (\(Int(top.confidence * 100))%)"
-            }
-        } else if let error = error {
-          self.resultsLabel.text = "error: \(error.localizedDescription)"
-        } else {
-          self.resultsLabel.text = "???"
-        }
-        self.showResultsView()
-      }
-    }
 
     
     func classify(image: UIImage) {
-        guard let resizedImage = image.resized(to: CGSize(width: 28, height: 28)),
-              let grayscaleImage = resizedImage.toGrayscale(),
-              let ciImage = CIImage(image: grayscaleImage) else {
-            print("Could not preprocess image.")
+        guard let resized = image.resized(to: CGSize(width: 28, height: 28)),
+              let grayscale = resized.toGrayscale(),
+              let grayscalePixels = grayscale.toFloatArray() else {
+            print("❌ Failed to preprocess image.")
             return
         }
 
-        let orientation = CGImagePropertyOrientation(image.imageOrientation)
-
-        DispatchQueue.global(qos: .userInitiated).async {
-            let handler = VNImageRequestHandler(ciImage: ciImage, orientation: orientation)
-            do {
-                try handler.perform([self.classificationRequest])
-            } catch {
-                print("Failed to perform classification: \(error)")
+        do {
+            let inputArray = try MLMultiArray(shape: [1, 784], dataType: .float32)
+            for (index, value) in grayscalePixels.enumerated() {
+                inputArray[index] = NSNumber(value: value)
             }
+
+            let model = try Mnist(configuration: MLModelConfiguration())
+            let prediction = try model.prediction(dense_input: inputArray)
+            let shaped = prediction.IdentityShapedArray
+
+            let bestIndex = shaped.scalars.enumerated().max(by: { $0.element < $1.element })?.offset ?? -1
+
+            DispatchQueue.main.async {
+                self.resultsLabel.text = "Digit: \(bestIndex)"
+                self.showResultsView()
+            }
+        } catch {
+            print("❌ Prediction failed: \(error)")
         }
     }
+
+
 
     
 
@@ -173,6 +145,7 @@ extension ViewController: UIImagePickerControllerDelegate, UINavigationControlle
 }
 
 
+
 extension UIImage {
     func resized(to size: CGSize) -> UIImage? {
         UIGraphicsBeginImageContextWithOptions(size, false, 1.0)
@@ -182,15 +155,37 @@ extension UIImage {
     }
 
     func toGrayscale() -> UIImage? {
-        let context = CIContext()
         guard let cgImage = self.cgImage else { return nil }
-        let ciImage = CIImage(cgImage: cgImage).applyingFilter("CIPhotoEffectMono")
-        if let outputCGImage = context.createCGImage(ciImage, from: ciImage.extent) {
-            return UIImage(cgImage: outputCGImage)
+        let ciImage = CIImage(cgImage: cgImage)
+            .applyingFilter("CIPhotoEffectMono")
+            .applyingFilter("CIColorInvert")
+        let context = CIContext()
+        guard let outputCGImage = context.createCGImage(ciImage, from: ciImage.extent) else { return nil }
+        return UIImage(cgImage: outputCGImage)
+    }
+    
+    func toFloatArray() -> [Float]? {
+        guard let cgImage = self.cgImage else { return nil }
+
+        let width = cgImage.width
+        let height = cgImage.height
+        let colorSpace = CGColorSpaceCreateDeviceGray()
+        var pixels = [UInt8](repeating: 0, count: width * height)
+
+        guard let context = CGContext(
+            data: &pixels,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: width,
+            space: colorSpace,
+            bitmapInfo: CGImageAlphaInfo.none.rawValue
+        ) else {
+            return nil
         }
-        return nil
+
+        context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
+        return pixels.map { Float($0) / 255.0 }
     }
 }
-
-
 
