@@ -34,7 +34,6 @@ class ViewController: UIViewController {
 
   var firstTime = true
 
-    
     lazy var classificationRequest: VNCoreMLRequest = {
         do {
             guard let modelURL = Bundle.main.url(forResource: "Mnist", withExtension: "mlpackage") else {
@@ -54,6 +53,7 @@ class ViewController: UIViewController {
             fatalError("Failed to load Mnist.mlpackage: \(error)")
         }
     }()
+
 
     
     
@@ -78,14 +78,15 @@ class ViewController: UIViewController {
 
     
     func classify(image: UIImage) {
-        guard let ciImage = CIImage(image: image) else {
-            print("Could not convert to CIImage.")
+        guard let resizedImage = image.resized(to: CGSize(width: 28, height: 28)),
+              let grayscaleImage = resizedImage.toGrayscale(),
+              let ciImage = CIImage(image: grayscaleImage) else {
+            print("Could not preprocess image.")
             return
         }
-        
-        
+
         let orientation = CGImagePropertyOrientation(image.imageOrientation)
-        
+
         DispatchQueue.global(qos: .userInitiated).async {
             let handler = VNImageRequestHandler(ciImage: ciImage, orientation: orientation)
             do {
@@ -95,6 +96,7 @@ class ViewController: UIViewController {
             }
         }
     }
+
     
 
     
@@ -168,6 +170,26 @@ extension ViewController: UIImagePickerControllerDelegate, UINavigationControlle
 
     classify(image: image)
   }
+}
+
+
+extension UIImage {
+    func resized(to size: CGSize) -> UIImage? {
+        UIGraphicsBeginImageContextWithOptions(size, false, 1.0)
+        defer { UIGraphicsEndImageContext() }
+        draw(in: CGRect(origin: .zero, size: size))
+        return UIGraphicsGetImageFromCurrentImageContext()
+    }
+
+    func toGrayscale() -> UIImage? {
+        let context = CIContext()
+        guard let cgImage = self.cgImage else { return nil }
+        let ciImage = CIImage(cgImage: cgImage).applyingFilter("CIPhotoEffectMono")
+        if let outputCGImage = context.createCGImage(ciImage, from: ciImage.extent) {
+            return UIImage(cgImage: outputCGImage)
+        }
+        return nil
+    }
 }
 
 

@@ -19,8 +19,8 @@
 /// THE SOFTWARE.
 
 import UIKit
-import CoreML
 import Vision
+import CoreML
 
 
 class ViewController: UIViewController {
@@ -35,85 +35,27 @@ class ViewController: UIViewController {
   var firstTime = true
 
     
+    
+    
+    
     lazy var classificationRequest: VNCoreMLRequest = {
         do {
-            guard let modelURL = Bundle.main.url(forResource: "Mnist", withExtension: "mlmodelc") else {
-                fatalError("❌ Nie znaleziono Mnist.mlmodelc w Bundle")
-            }
-            
-            let model = try MLModel(contentsOf: modelURL)
-            let visionModel = try VNCoreMLModel(for: model)
+            let model = try HealthySnacks(configuration: MLModelConfiguration())
+            let visionModel = try VNCoreMLModel(for: model.model)
             let request = VNCoreMLRequest(model: visionModel) { [weak self] request, error in
                 self?.processObservations(for: request, error: error)
             }
             request.imageCropAndScaleOption = .centerCrop
             return request
         } catch {
-            fatalError("❌ Błąd przy ładowaniu modelu: \(error)")
+            fatalError("Could not create model: \(error)")
         }
     }()
-
-
-    
-    
-    
-    func processObservations(for request: VNRequest, error: Error?) {
-      DispatchQueue.main.async {
-        if let results = request.results as? [VNClassificationObservation] {
-          if results.isEmpty {
-            self.resultsLabel.text = "nothing found"
-          } else if results[0].confidence < 0.8 {
-            self.resultsLabel.text = "not sure"
-          } else {
-            self.resultsLabel.text = String(format: "%@ %.1f%%", results[0].identifier, results[0].confidence * 100)
-          }
-        } else if let error = error {
-          self.resultsLabel.text = "error: \(error.localizedDescription)"
-        } else {
-          self.resultsLabel.text = "???"
-        }
-        self.showResultsView()
-      }
-    }
-
-    
-    func classify(image: UIImage) {
-        guard let ciImage = CIImage(image: image) else {
-            print("Could not convert to CIImage.")
-            return
-        }
-        
-        let orientation = CGImagePropertyOrientation(image.imageOrientation)
-        
-        DispatchQueue.global(qos: .userInitiated).async {
-            let handler = VNImageRequestHandler(ciImage: ciImage, orientation: orientation)
-            do {
-                try handler.perform([self.classificationRequest])
-            } catch {
-                print("Failed to perform classification: \(error)")
-            }
-        }
-    }
-    
-
-    func debugCheckMLPackage() {
-        let paths = Bundle.main.paths(forResourcesOfType: "mlpackage", inDirectory: nil)
-        print("🔍 Znalezione MLPackage w Bundle:", paths)
-        
-        if let mnistPath = Bundle.main.path(forResource: "Mnist", ofType: "mlpackage") {
-            print("✅ Mnist.mlpackage znaleziony w: \(mnistPath)")
-        } else {
-            print("❌ Mnist.mlpackage NIE ZNALEZIONY w Bundle")
-        }
-    }
 
     
     
   override func viewDidLoad() {
     super.viewDidLoad()
-      
-      debugCheckMLPackage() // 🔧 uruchom debugowanie modelu
-      
     cameraButton.isEnabled = UIImagePickerController.isSourceTypeAvailable(.camera)
     resultsView.alpha = 0
     resultsLabel.text = "choose or take a photo"
@@ -168,7 +110,48 @@ class ViewController: UIViewController {
     }
   }
 
+    
+    func processObservations(for request: VNRequest, error: Error?) {
+      DispatchQueue.main.async {
+        if let results = request.results as? [VNClassificationObservation] {
+          if results.isEmpty {
+            self.resultsLabel.text = "nothing found"
+          } else if results[0].confidence < 0.8 {
+            self.resultsLabel.text = "not sure"
+          } else {
+            self.resultsLabel.text = String(format: "%@ %.1f%%", results[0].identifier, results[0].confidence * 100)
+          }
+        } else if let error = error {
+          self.resultsLabel.text = "error: \(error.localizedDescription)"
+        } else {
+          self.resultsLabel.text = "???"
+        }
+        self.showResultsView()
+      }
+    }
 
+    
+
+    
+    func classify(image: UIImage) {
+        guard let ciImage = CIImage(image: image) else {
+            print("Could not convert to CIImage.")
+            return
+        }
+        
+        let orientation = CGImagePropertyOrientation(image.imageOrientation)
+        
+        DispatchQueue.global(qos: .userInitiated).async {
+            let handler = VNImageRequestHandler(ciImage: ciImage, orientation: orientation)
+            do {
+                try handler.perform([self.classificationRequest])
+            } catch {
+                print("Failed to perform classification: \(error)")
+            }
+        }
+    }
+
+    
 }
 
 extension ViewController: UIImagePickerControllerDelegate, UINavigationControllerDelegate {
@@ -181,6 +164,3 @@ extension ViewController: UIImagePickerControllerDelegate, UINavigationControlle
     classify(image: image)
   }
 }
-
-
-
