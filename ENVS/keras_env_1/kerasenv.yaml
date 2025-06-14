@@ -1,0 +1,23 @@
+name: kerasenv
+channels:
+  - defaults
+dependencies:
+  - python=3.9
+  - pip
+  - scikit-learn
+  - scikit-image
+  - matplotlib
+  - seaborn
+  - ipython
+  - jupyter
+  - scipy
+  - numpy
+  - pandas
+  - pillow
+  - pydot
+  - keras=2.*
+  - tensorflow=2.12
+  - nomkl
+  - graphviz
+  - pip:
+      - coremltools

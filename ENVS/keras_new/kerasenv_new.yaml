@@ -1,0 +1,18 @@
+name: kerasenv_new
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10
+  - pip
+  - numpy
+  - pandas
+  - matplotlib
+  - seaborn
+  - pillow
+  - scikit-learn
+  - scikit-image
+  - jupyter
+  - ipython
+  - pydot
+  - tensorflow
+  - keras

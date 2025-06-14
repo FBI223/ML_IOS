@@ -1,0 +1,22 @@
+name: kerasenv
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - pip
+  - numpy
+  - pandas
+  - scipy
+  - matplotlib
+  - seaborn
+  - scikit-learn
+  - scikit-image
+  - pillow
+  - ipython
+  - jupyter
+  - pydot
+  - tensorflow=2.11  # lub nowszy
+  - pip:
+      - coremltools>=6.0  # wersje 6.x+ działają z M1 i TF2
+
